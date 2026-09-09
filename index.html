@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rink Board</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --ice:#eef5fa;
+    --ice-deep:#dce9f2;
+    --surface:#ffffff;
+    --surface-2:#e7eef4;
+    --ink:#101b2d;
+    --muted:#5b6b80;
+    --border:#c9d6e0;
+    --accent:#1d4e89;
+    --accent-ink:#ffffff;
+    --team-x:#1d4e89;
+    --team-o:#c8372d;
+    --puck:#101b2d;
+    --good:#2e7d5b;
+    --danger:#b23b2e;
+    --line-blue:#3768a6;
+    --line-red:#b3423a;
+    /* Instruction-line colors: one distinct, high-contrast hue per
+       instruction type (not per team), so skate/backward/pass/shot are
+       each identifiable by color alone, at a glance, against the ice. */
+    --type-skate:#1f8a4c;
+    --type-backward:#b45a00;
+    --type-pass:#7c3aed;
+    --type-shot:#0e7490;
+    --shadow: 0 1px 2px rgba(16,27,45,.06), 0 8px 24px rgba(16,27,45,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ice:#0b1523;
+      --ice-deep:#0e1c2e;
+      --surface:#121e30;
+      --surface-2:#1a2c44;
+      --ink:#e9eff6;
+      --muted:#93a6bc;
+      --border:#2a3d56;
+      --accent:#6ba3e0;
+      --accent-ink:#0b1523;
+      --team-x:#7bb0e6;
+      --team-o:#e37b6d;
+      --puck:#eef5fa;
+      --good:#5fbf93;
+      --danger:#e0776a;
+      --line-blue:#5c86b8;
+      --line-red:#b3675f;
+      --type-skate:#4ade80;
+      --type-backward:#fb923c;
+      --type-pass:#c4b5fd;
+      --type-shot:#22d3ee;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ice:#0b1523;
+    --ice-deep:#0e1c2e;
+    --surface:#121e30;
+    --surface-2:#1a2c44;
+    --ink:#e9eff6;
+    --muted:#93a6bc;
+    --border:#2a3d56;
+    --accent:#6ba3e0;
+    --accent-ink:#0b1523;
+    --team-x:#7bb0e6;
+    --team-o:#e37b6d;
+    --puck:#eef5fa;
+    --good:#5fbf93;
+    --danger:#e0776a;
+    --line-blue:#5c86b8;
+    --line-red:#b3675f;
+    --type-skate:#4ade80;
+    --type-backward:#fb923c;
+    --type-pass:#c4b5fd;
+    --type-shot:#22d3ee;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.4);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--surface-2); color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    height:100vh; overflow:hidden;
+  }
+  .app{ display:flex; flex-direction:column; height:100vh; }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    display:flex; align-items:center; gap:16px;
+    padding:10px 18px; background:var(--surface); border-bottom:1px solid var(--border);
+    flex:0 0 auto; z-index:20;
+  }
+  .brand{ display:flex; align-items:baseline; gap:8px; }
+  .brand .mark{
+    font-family:'Oswald',sans-serif; font-weight:700; font-size:20px; letter-spacing:.02em;
+    color:var(--accent);
+  }
+  .brand .tag{ font-size:11px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; }
+  .topbar .spacer{ flex:1; }
+  .topbar-actions{ display:flex; gap:8px; }
+
+  button{ font-family:inherit; cursor:pointer; }
+  .btn{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:7px 12px; border-radius:7px; border:1px solid var(--border);
+    background:var(--surface); color:var(--ink); font-size:13px; font-weight:600;
+    transition:background .12s, border-color .12s;
+  }
+  .btn:hover{ background:var(--surface-2); }
+  .btn:active{ transform:translateY(1px); }
+  .btn.primary{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .btn.primary:hover{ filter:brightness(1.06); }
+  .btn.danger{ color:var(--danger); border-color:var(--danger); background:transparent; }
+  .btn.small{ padding:5px 9px; font-size:12px; }
+  .btn[disabled]{ opacity:.4; cursor:default; }
+  .btn:focus-visible, input:focus-visible, select:focus-visible, .swatch:focus-visible, .tool:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+
+  /* ---------- Layout ---------- */
+  .body{ flex:1; display:flex; min-height:0; }
+  .sidebar{
+    width:296px; flex:0 0 auto; background:var(--surface); border-right:1px solid var(--border);
+    overflow-y:auto; padding:16px 16px 40px;
+  }
+  .sidebar h2{
+    font-family:'Oswald',sans-serif; font-size:13px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--muted); margin:22px 0 10px; font-weight:600;
+  }
+  .sidebar h2:first-child{ margin-top:0; }
+  .stage{ flex:1; position:relative; display:flex; flex-direction:column; min-width:0; background:var(--ice-deep); }
+
+  .field{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+  .field label{ font-size:13px; color:var(--ink); font-weight:500; }
+  .stepper{ display:flex; align-items:center; gap:0; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
+  .stepper button{ width:26px; height:26px; border:none; background:var(--surface-2); color:var(--ink); font-size:14px; line-height:1; }
+  .stepper button:hover{ background:var(--border); }
+  .stepper .count{ width:26px; text-align:center; font-variant-numeric:tabular-nums; font-weight:600; font-size:13px; }
+  .toggle{
+    position:relative; width:38px; height:22px; border-radius:11px; background:var(--surface-2);
+    border:1px solid var(--border); cursor:pointer; flex:0 0 auto;
+  }
+  .toggle .knob{
+    position:absolute; top:1px; left:1px; width:18px; height:18px; border-radius:50%;
+    background:var(--muted); transition:left .15s, background .15s;
+  }
+  .toggle.on{ background:var(--accent); border-color:var(--accent); }
+  .toggle.on .knob{ left:17px; background:var(--accent-ink); }
+
+  .team-block{ border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:10px; }
+  .team-title{ display:flex; align-items:center; gap:8px; font-family:'Oswald',sans-serif; font-weight:600; font-size:14px; margin-bottom:8px; }
+  .team-chip{ width:14px; height:14px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; }
+  .team-chip.x{ background:var(--team-x); }
+  .team-chip.o{ background:var(--team-o); }
+
+  .zonebtns{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .zonebtns .btn{ justify-content:center; }
+
+  .savedplay{ display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+  .savedplay .btn{ flex:1; text-align:left; justify-content:flex-start; font-weight:500; }
+  .savedplay .btn.icon{ flex:0 0 auto; padding:6px 8px; }
+  .empty-note{ font-size:12px; color:var(--muted); font-style:italic; }
+  .saved-actions{ display:flex; gap:6px; margin-bottom:8px; }
+  .saved-actions .btn{ flex:1; justify-content:center; }
+
+  /* ---------- Toolbar overlay ---------- */
+  .toolbar{
+    display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+    padding:9px 14px; background:var(--surface); border-bottom:1px solid var(--border);
+    flex:0 0 auto; z-index:10;
+  }
+  .tool-group{ display:flex; gap:4px; padding:3px; background:var(--surface-2); border-radius:9px; }
+  .tool{
+    display:flex; align-items:center; gap:6px; padding:6px 10px; border-radius:6px; border:none;
+    background:transparent; color:var(--ink); font-size:12.5px; font-weight:600;
+  }
+  .tool:hover{ background:var(--surface); }
+  .tool.active{ background:var(--accent); color:var(--accent-ink); }
+  .tool svg{ width:15px; height:15px; flex:0 0 auto; }
+  .divider{ width:1px; align-self:stretch; background:var(--border); margin:0 4px; }
+  .legend{ margin-left:auto; display:flex; gap:14px; font-size:11px; color:var(--muted); flex-wrap:wrap; }
+  .legend span{ display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+  .legend svg{ width:22px; height:10px; }
+
+  /* ---------- Rink canvas ---------- */
+  .rinkwrap{ flex:1; position:relative; overflow:hidden; touch-action:none; min-height:0; }
+  svg#rink{ width:100%; height:100%; display:block; cursor:grab; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+  svg#rink.dragging-view{ cursor:grabbing; }
+  svg#rink.tool-select{ cursor:default; }
+  svg#rink.tool-draw{ cursor:crosshair; }
+  /* Instructions always target a player, never the puck itself - let clicks
+     pass through the puck (which may sit on top of its carrier) to the
+     player underneath whenever a drawing/note/erase tool is active. */
+  svg#rink.tool-draw [data-id="puck"]{ pointer-events:none; }
+  /* While the animation is actually playing, hide the drawn instruction
+     lines so only the player/puck icons are seen moving - the lines come
+     back as soon as playback is paused or stopped. */
+  svg#rink.playing #pathsLayer{ display:none; }
+
+  .zoom-hint{
+    position:absolute; left:14px; bottom:64px; font-size:11px; color:var(--muted);
+    background:var(--surface); border:1px solid var(--border); padding:5px 9px; border-radius:7px;
+    pointer-events:none; opacity:.85;
+  }
+
+  /* ---------- Playback bar ---------- */
+  .playbar{
+    display:flex; align-items:center; gap:12px; padding:10px 16px;
+    background:var(--surface); border-top:1px solid var(--border); flex:0 0 auto;
+  }
+  .playbtn{
+    width:38px; height:38px; border-radius:50%; border:none; background:var(--accent); color:var(--accent-ink);
+    display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  }
+  .playbtn svg{ width:16px; height:16px; }
+  input[type="range"]{ -webkit-appearance:none; appearance:none; height:4px; background:var(--border); border-radius:2px; flex:1; }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent); cursor:pointer;
+    border:2px solid var(--surface); box-shadow:0 0 0 1px var(--border);
+  }
+  input[type="range"]::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:var(--accent); border:2px solid var(--surface); cursor:pointer; }
+  .speedwrap{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+  .speedwrap label{ font-size:11.5px; color:var(--muted); white-space:nowrap; }
+  .speedwrap input[type=range]{ width:90px; }
+  .timecode{ font-variant-numeric:tabular-nums; font-size:12px; color:var(--muted); width:70px; text-align:right; flex:0 0 auto; }
+
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb{ background:var(--border); border-radius:5px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+
+  /* SVG element styling */
+  .rink-ice{ fill:var(--ice); }
+  .rink-boards{ fill:none; stroke:var(--ink); stroke-width:.6; opacity:.55; }
+  .rink-bluel{ stroke:var(--line-blue); stroke-width:.9; }
+  .rink-redl{ stroke:var(--line-red); stroke-width:.6; }
+  .rink-circle{ fill:none; stroke:var(--line-red); stroke-width:.4; opacity:.75; }
+  .rink-dot{ fill:var(--line-red); opacity:.75; }
+  .rink-crease{ fill:var(--line-blue); opacity:.15; stroke:var(--line-blue); stroke-width:.4; }
+  .rink-net{ fill:none; stroke:var(--ink); stroke-width:.6; opacity:.7; }
+  .zone-label{ fill:var(--muted); font-family:'Oswald',sans-serif; font-size:4px; letter-spacing:.1em; opacity:.5; text-transform:uppercase; }
+
+  .player{ cursor:grab; }
+  .player.dragging{ cursor:grabbing; }
+  .player .hit{ fill:transparent; }
+  .player .marker{ stroke:var(--surface); stroke-width:.5; }
+  .player.team-x .marker{ fill:var(--team-x); }
+  .player.team-o .marker{ fill:var(--team-o); }
+  .player.goalie .marker{ stroke:var(--ink); stroke-width:.9; }
+  .player .glyph{ font-family:'Oswald',sans-serif; font-weight:700; font-size:4.3px; text-anchor:middle; dominant-baseline:central; fill:#fff; letter-spacing:-.02em; }
+
+  .puck{ fill:var(--puck); stroke:var(--ice); stroke-width:.6; cursor:grab; }
+  .player.linked .puck{ stroke:var(--accent); stroke-width:.8; }
+  .puck-tether{ stroke:var(--accent); stroke-width:.35; stroke-dasharray:.6 1; opacity:.6; pointer-events:none; }
+
+  .path-hit{ fill:none; stroke:transparent; stroke-width:3; }
+  .path-line{ fill:none; stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
+  /* Colored by instruction type, not by team, so each kind of line reads at
+     a glance regardless of which player drew it. */
+  .path-line.skate{ stroke:var(--type-skate); stroke-width:.85; }
+  .path-line.backward{ stroke:var(--type-backward); stroke-width:.85; }
+  .path-line.pass{ stroke-dasharray:1.6 1.4; stroke:var(--type-pass); stroke-width:.85; }
+  .path-line.shot{ stroke:var(--type-shot); stroke-width:.85; }
+  .path-line.deletable:hover{ opacity:.55; }
+  .path-tick{ pointer-events:none; }
+  .path-tick.shot{ stroke:var(--type-shot); stroke-width:.85; }
+  .note-text{ font-family:'Inter',sans-serif; font-size:4.2px; font-weight:600; fill:var(--ink); paint-order:stroke; stroke:var(--ice); stroke-width:2.4px; }
+  .note-hit{ fill:transparent; }
+
+  @media print{
+    body{ background:#fff; height:auto; overflow:visible; }
+    .topbar .topbar-actions, .toolbar, .playbar, .zoom-hint, #menuBtn{ display:none !important; }
+    .sidebar{ display:none !important; }
+    .app, .body, .stage, .rinkwrap{ height:auto !important; overflow:visible !important; }
+    .rinkwrap{ min-height:80vh; }
+    svg#rink{ width:100%; height:80vh; cursor:default; }
+    .brand .mark{ color:#000; }
+  }
+  /* Tablet landscape (e.g. iPad): the fixed sidebar plus a full text+icon
+     toolbar don't fit side-by-side without wrapping to a second row, which
+     (combined with the fixed 100vh app height) can push the toolbar or the
+     playback bar off-screen. Compact the toolbar to icon-only buttons and
+     drop the legend so everything fits on one row without shrinking the
+     sidebar or the rink canvas. */
+  @media (max-width: 1200px){
+    .legend{ display:none; }
+    .toolbar{ gap:4px; padding:8px 10px; }
+    .tool{ padding:8px; }
+    .tool .tool-label{ display:none; }
+  }
+  @media (max-width: 880px){
+    .sidebar{ position:absolute; left:0; top:0; bottom:0; z-index:30; box-shadow:var(--shadow); transform:translateX(-100%); transition:transform .2s; }
+    .sidebar.open{ transform:translateX(0); }
+    .legend{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <div class="topbar">
+    <button class="btn small" id="menuBtn" style="display:none;">&#9776;</button>
+    <div class="brand"><span class="mark">RINK BOARD</span><span class="tag">Play &amp; Drill Designer</span></div>
+    <div class="spacer"></div>
+    <div class="topbar-actions">
+      <button class="btn" id="saveBtn">Save Play</button>
+      <button class="btn" id="printBtn">Print Diagram</button>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="sidebar" id="sidebar">
+      <h2>Ice Surface</h2>
+      <div class="zonebtns" id="zoneBtns" style="margin-bottom:14px;">
+        <button class="btn small" data-zone="full">Full Ice</button>
+        <button class="btn small" data-zone="neutral">Neutral Zone</button>
+        <button class="btn small" data-zone="def">Defensive Zone</button>
+        <button class="btn small" data-zone="off">Offensive Zone</button>
+      </div>
+
+      <h2>Roster</h2>
+      <div class="team-block">
+        <div class="team-title"><span class="team-chip x"></span> Blue Team</div>
+        <div class="field">
+          <label>Skaters</label>
+          <div class="stepper"><button data-team="X" data-d="-1">-</button><span class="count" id="countX">3</span><button data-team="X" data-d="1">+</button></div>
+        </div>
+        <div class="field">
+          <label>Goalie</label>
+          <div class="toggle" id="goalieX" data-team="X"><div class="knob"></div></div>
+        </div>
+      </div>
+      <div class="team-block">
+        <div class="team-title"><span class="team-chip o"></span> Red Team</div>
+        <div class="field">
+          <label>Skaters</label>
+          <div class="stepper"><button data-team="O" data-d="-1">-</button><span class="count" id="countO">3</span><button data-team="O" data-d="1">+</button></div>
+        </div>
+        <div class="field">
+          <label>Goalie</label>
+          <div class="toggle" id="goalieO" data-team="O"><div class="knob"></div></div>
+        </div>
+      </div>
+      <button class="btn small" id="formationBtn" style="width:100%; justify-content:center; margin-bottom:4px;">New Formation</button>
+      <button class="btn small" id="clearPathsBtn" style="width:100%; justify-content:center;">Clear All Paths</button>
+
+      <h2>Saved Plays</h2>
+      <div class="saved-actions">
+        <button class="btn small" id="exportPlaysBtn" title="Download all saved plays as a file">Export</button>
+        <button class="btn small" id="importPlaysBtn" title="Load plays from a file">Import</button>
+        <input type="file" id="importPlaysFile" accept=".json,application/json" hidden>
+      </div>
+      <div id="savedList"><div class="empty-note">Nothing saved yet.</div></div>
+    </div>
+
+    <div class="stage">
+      <div class="toolbar">
+        <div class="tool-group">
+          <button class="tool active" data-tool="select" title="Move players">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3l14 8-6 2-2 6z"/></svg><span class="tool-label">Move</span>
+          </button>
+          <button class="tool" data-tool="skate" title="Draw skating path">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17c4-8 8-8 10-12"/><path d="M9 9l4 2 4-6"/></svg><span class="tool-label">Skate</span>
+          </button>
+          <button class="tool" data-tool="backward" title="Draw backward skate (defensive)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12q2-5 5 0t5 0t5 0t3 0"/></svg><span class="tool-label">Backward</span>
+          </button>
+          <button class="tool" data-tool="pass" title="Draw a pass">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"><path d="M3 17L21 7"/></svg><span class="tool-label">Pass</span>
+          </button>
+          <button class="tool" data-tool="shot" title="Draw a shot">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20L20 4"/><path d="M15 4h5v5"/></svg><span class="tool-label">Shot</span>
+          </button>
+          <button class="tool" data-tool="note" title="Add a text note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H9l-5 5z"/></svg><span class="tool-label">Note</span>
+          </button>
+          <button class="tool" data-tool="erase" title="Delete a path or note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16l7-7 7 7-4 4H8z"/><path d="M6 20h13"/></svg><span class="tool-label">Erase</span>
+          </button>
+        </div>
+        <div class="divider"></div>
+        <button class="btn small" id="undoBtn">Undo</button>
+        <button class="btn small" id="puckBtn">Place Puck</button>
+        <div class="legend" id="legend"></div>
+      </div>
+
+      <div class="rinkwrap" id="rinkwrap">
+        <svg id="rink" viewBox="-4 -4 208 93" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow-skate" markerWidth="4" markerHeight="4" refX="3.2" refY="2" orient="auto-start-reverse"><path d="M0,0 L4,2 L0,4 Z" style="fill:var(--type-skate)"/></marker>
+            <marker id="arrow-backward" markerWidth="4" markerHeight="4" refX="3.2" refY="2" orient="auto-start-reverse"><path d="M0,0 L4,2 L0,4 Z" style="fill:var(--type-backward)"/></marker>
+            <marker id="arrow-pass" markerWidth="4" markerHeight="4" refX="3.2" refY="2" orient="auto-start-reverse"><path d="M0,0 L4,2 L0,4 Z" style="fill:var(--type-pass)"/></marker>
+            <marker id="arrow-shot" markerWidth="4" markerHeight="4" refX="3.2" refY="2" orient="auto-start-reverse"><path d="M0,0 L4,2 L0,4 Z" style="fill:var(--type-shot)"/></marker>
+          </defs>
+          <g id="rinkStatic"></g>
+          <g id="pathsLayer"></g>
+          <g id="notesLayer"></g>
+          <g id="entitiesLayer"></g>
+        </svg>
+        <div class="zoom-hint">Scroll or pinch to zoom &middot; drag empty ice to pan</div>
+      </div>
+
+      <div class="playbar">
+        <button class="playbtn" id="playBtn">
+          <svg viewBox="0 0 24 24" fill="currentColor" id="playIcon"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button class="btn small" id="resetBtn">Reset</button>
+        <input type="range" id="scrubber" min="0" max="1000" value="0">
+        <div class="timecode" id="timecode">0.0 / 0.0s</div>
+        <div class="speedwrap">
+          <label>Speed</label>
+          <input type="range" id="speedSlider" min="25" max="200" value="100">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================= RINK GEOMETRY (feet) ============================= */
+  var RINK = { L:200, W:85, r:28, goalLine:11, blueLine:75, crease:6 };
+  var SVGNS = "http://www.w3.org/2000/svg";
+
+  var ZONES = {
+    full:     {x:-4, y:-4, w:208, h:93},
+    neutral:  {x:60, y:-4, w:80,  h:93},
+    def:      {x:-6, y:-4, w:88,  h:93},
+    off:      {x:118,y:-4, w:88,  h:93}
+  };
+
+  var PUCK_ATTACH_DIST = 7;           // feet: how close the puck must get to a player to link
+  var PUCK_OFFSET = {x:2.8, y:2.8};   // feet: where the puck sits relative to a player carrying it
+
+  /* ============================= STATE ============================= */
+  var state = {
+    players: [],       // {id,team,number,goalie,x,y,sx,sy}
+    puck: {x:100,y:42.5,sx:100,sy:42.5, active:true, carriedBy:null},
+    paths: [],          // {id,owner,type,pts:[{x,y}],toId}
+    notes: [],           // {id,x,y,text}
+    tool: 'select',
+    countX: 3, countO: 3, goalieX:false, goalieO:false,
+    view: Object.assign({}, ZONES.full),
+    nextId: 1
+  };
+  var history = [];
+  var HISTORY_MAX = 40;
+
+  function uid(){ return 'e' + (state.nextId++); }
+  function snapshot(){
+    return JSON.stringify({players:state.players, puck:state.puck, paths:state.paths, notes:state.notes,
+      countX:state.countX, countO:state.countO, goalieX:state.goalieX, goalieO:state.goalieO});
+  }
+  function pushHistory(){
+    history.push(snapshot());
+    if(history.length>HISTORY_MAX) history.shift();
+  }
+  function undo(){
+    if(!history.length) return;
+    var snap = JSON.parse(history.pop());
+    Object.assign(state, snap);
+    stopPlayback();
+    renderAll();
+  }
+
+  /* ============================= DOM refs ============================= */
+  var svg = document.getElementById('rink');
+  var rinkStatic = document.getElementById('rinkStatic');
+  var pathsLayer = document.getElementById('pathsLayer');
+  var notesLayer = document.getElementById('notesLayer');
+  var entitiesLayer = document.getElementById('entitiesLayer');
+  var rinkwrap = document.getElementById('rinkwrap');
+
+  /* ============================= DRAW STATIC RINK ============================= */
+  function el(tag, attrs, cls){
+    var e = document.createElementNS(SVGNS, tag);
+    for(var k in attrs) e.setAttribute(k, attrs[k]);
+    if(cls) e.setAttribute('class', cls);
+    return e;
+  }
+
+  function buildRink(){
+    var L=RINK.L, W=RINK.W, r=RINK.r;
+    var boardsD = "M "+r+",0 L "+(L-r)+",0 A "+r+","+r+" 0 0 1 "+L+","+r+
+      " L "+L+","+(W-r)+" A "+r+","+r+" 0 0 1 "+(L-r)+","+W+
+      " L "+r+","+W+" A "+r+","+r+" 0 0 1 0,"+(W-r)+
+      " L 0,"+r+" A "+r+","+r+" 0 0 1 "+r+",0 Z";
+    rinkStatic.appendChild(el('path', {d:boardsD, class:'rink-ice'}));
+    rinkStatic.appendChild(el('path', {d:boardsD, class:'rink-boards'}));
+
+    // blue lines
+    [RINK.blueLine, L-RINK.blueLine].forEach(function(x){
+      rinkStatic.appendChild(el('line', {x1:x, y1:1, x2:x, y2:W-1, class:'rink-bluel'}));
+    });
+    // center red line
+    rinkStatic.appendChild(el('line', {x1:L/2, y1:1, x2:L/2, y2:W-1, class:'rink-redl'}));
+    // center circle
+    rinkStatic.appendChild(el('circle', {cx:L/2, cy:W/2, r:15, class:'rink-circle'}));
+    rinkStatic.appendChild(el('circle', {cx:L/2, cy:W/2, r:.8, class:'rink-dot'}));
+
+    // zone faceoff circles + dots
+    var fo = [[31,20.5],[31,64.5],[L-31,20.5],[L-31,64.5]];
+    fo.forEach(function(p){
+      rinkStatic.appendChild(el('circle', {cx:p[0], cy:p[1], r:15, class:'rink-circle'}));
+      rinkStatic.appendChild(el('circle', {cx:p[0], cy:p[1], r:.9, class:'rink-dot'}));
+    });
+    // neutral zone dots
+    [[70,20.5],[70,64.5],[130,20.5],[130,64.5]].forEach(function(p){
+      rinkStatic.appendChild(el('circle', {cx:p[0], cy:p[1], r:.9, class:'rink-dot'}));
+    });
+
+    // nets & creases
+    [11, L-11].forEach(function(gx, i){
+      var dir = i===0 ? 1 : -1;
+      // crease (semicircle bulging toward center ice)
+      var creaseD = "M "+gx+","+(W/2-6)+" A 6,6 0 0 "+(i===0?1:0)+" "+gx+","+(W/2+6);
+      rinkStatic.appendChild(el('path', {d:creaseD, class:'rink-crease'}));
+      // net
+      var nx = i===0 ? gx-3 : gx;
+      rinkStatic.appendChild(el('rect', {x:nx, y:W/2-3, width:3, height:6, class:'rink-net'}));
+    });
+
+    // zone labels
+    rinkStatic.appendChild(el('text', {x:31, y:8, class:'zone-label', 'text-anchor':'middle'})).textContent = 'Def. Zone';
+    rinkStatic.appendChild(el('text', {x:100, y:8, class:'zone-label', 'text-anchor':'middle'})).textContent = 'Neutral Zone';
+    rinkStatic.appendChild(el('text', {x:169, y:8, class:'zone-label', 'text-anchor':'middle'})).textContent = 'Off. Zone';
+  }
+
+  /* ============================= FORMATIONS ============================= */
+  var POSITION_ORDER = ['C','LW','RW','LD','RD'];
+  function positionFor(i){ return POSITION_ORDER[i % POSITION_ORDER.length]; }
+
+  function defaultFormation(){
+    state.players = [];
+    // Forwards (C/LW/RW) line up in the neutral zone; defensemen (LD/RD) hold
+    // their own defensive-zone blue line. Slots are ordered to match
+    // POSITION_ORDER (C, LW, RW, LD, RD), with a 6th slot for an extra
+    // forward if a team carries 6 skaters.
+    var xSlots = [[90,42.5],[88,20],[88,65],[72,30],[72,55],[95,10]];
+    var oSlots = [[110,42.5],[112,65],[112,20],[128,55],[128,30],[105,75]];
+    for(var i=0;i<state.countX;i++){
+      var p = xSlots[i%xSlots.length];
+      state.players.push({id:uid(),team:'X',pos:positionFor(i),goalie:false,x:p[0],y:p[1],sx:p[0],sy:p[1]});
+    }
+    for(i=0;i<state.countO;i++){
+      p = oSlots[i%oSlots.length];
+      state.players.push({id:uid(),team:'O',pos:positionFor(i),goalie:false,x:p[0],y:p[1],sx:p[0],sy:p[1]});
+    }
+    if(state.goalieX) state.players.push({id:uid(),team:'X',pos:'G',goalie:true,x:6,y:42.5,sx:6,sy:42.5});
+    if(state.goalieO) state.players.push({id:uid(),team:'O',pos:'G',goalie:true,x:194,y:42.5,sx:194,sy:42.5});
+    state.paths = [];
+    state.notes = [];
+    state.puck = {x:100,y:42.5,sx:100,sy:42.5,active:true,carriedBy:null};
+  }
+
+  /* ============================= PATH MATH ============================= */
+  function simplify(points, tol){
+    if(points.length<3) return points.slice();
+    var out=[points[0]];
+    for(var i=1;i<points.length;i++){
+      var last=out[out.length-1];
+      var dx=points[i].x-last.x, dy=points[i].y-last.y;
+      if(Math.sqrt(dx*dx+dy*dy) >= tol) out.push(points[i]);
+    }
+    if(out[out.length-1]!==points[points.length-1]) out.push(points[points.length-1]);
+    return out;
+  }
+  function catmullRomD(pts){
+    if(pts.length<2) return "";
+    if(pts.length===2) return "M "+pts[0].x+","+pts[0].y+" L "+pts[1].x+","+pts[1].y;
+    var d = "M "+pts[0].x+","+pts[0].y+" ";
+    for(var i=0;i<pts.length-1;i++){
+      var p0 = pts[i-1] || pts[i];
+      var p1 = pts[i];
+      var p2 = pts[i+1];
+      var p3 = pts[i+2] || p2;
+      var c1x = p1.x + (p2.x - p0.x)/6, c1y = p1.y + (p2.y - p0.y)/6;
+      var c2x = p2.x - (p3.x - p1.x)/6, c2y = p2.y - (p3.y - p1.y)/6;
+      d += "C "+c1x+","+c1y+" "+c2x+","+c2y+" "+p2.x+","+p2.y+" ";
+    }
+    return d;
+  }
+  function zigzagD(pts, amp, wave){
+    amp = amp||1.6; wave = wave||5;
+    var flat = flattenLength(pts);
+    if(flat.total < 1) return catmullRomD(pts);
+    var d="", n = Math.max(2, Math.round(flat.total/wave));
+    var out=[];
+    for(var i=0;i<=n;i++){
+      var t = i/n;
+      var pt = pointAtT(flat, t);
+      var tang = tangentAtT(flat, t);
+      var perp = {x:-tang.y, y:tang.x};
+      var side = (i%2===0)? 1 : -1;
+      var a = (i===0||i===n) ? 0 : amp*side;
+      out.push({x:pt.x+perp.x*a, y:pt.y+perp.y*a});
+    }
+    for(i=0;i<out.length;i++) d += (i===0?"M ":"L ")+out[i].x+","+out[i].y+" ";
+    return d;
+  }
+  function flattenLength(pts){
+    var segs=[], total=0;
+    for(var i=0;i<pts.length-1;i++){
+      var dx=pts[i+1].x-pts[i].x, dy=pts[i+1].y-pts[i].y;
+      var len=Math.sqrt(dx*dx+dy*dy);
+      segs.push({a:pts[i], b:pts[i+1], len:len, at:total});
+      total+=len;
+    }
+    return {segs:segs, total:total};
+  }
+  function pointAtT(flat, t){
+    var target = t*flat.total;
+    for(var i=0;i<flat.segs.length;i++){
+      var s=flat.segs[i];
+      if(target <= s.at+s.len || i===flat.segs.length-1){
+        var lt = s.len>0 ? (target-s.at)/s.len : 0;
+        lt = Math.max(0, Math.min(1, lt));
+        return {x:s.a.x+(s.b.x-s.a.x)*lt, y:s.a.y+(s.b.y-s.a.y)*lt};
+      }
+    }
+    var last=flat.segs[flat.segs.length-1];
+    return last ? last.b : {x:0,y:0};
+  }
+  function tangentAtT(flat, t){
+    var target = t*flat.total;
+    for(var i=0;i<flat.segs.length;i++){
+      var s=flat.segs[i];
+      if(target <= s.at+s.len || i===flat.segs.length-1){
+        var dx=s.b.x-s.a.x, dy=s.b.y-s.a.y, len=Math.sqrt(dx*dx+dy*dy)||1;
+        return {x:dx/len, y:dy/len};
+      }
+    }
+    return {x:1,y:0};
+  }
+  function pathLength(pts){ return flattenLength(pts).total; }
+
+  // Closest point on a polyline to `pt`, plus how far along the line (0..1 by
+  // arc length) that point sits - used to anchor a mid-route pass/shot to an
+  // exact place and time along a player's existing skate/backward path.
+  function nearestPointOnPolyline(pts, pt){
+    var flat = flattenLength(pts);
+    if(flat.total<=0) return {point:pts[0], frac:0};
+    var best = null;
+    flat.segs.forEach(function(s){
+      var dx=s.b.x-s.a.x, dy=s.b.y-s.a.y;
+      var len2 = dx*dx+dy*dy;
+      var tt = len2>0 ? ((pt.x-s.a.x)*dx + (pt.y-s.a.y)*dy)/len2 : 0;
+      tt = Math.max(0, Math.min(1, tt));
+      var px = s.a.x+dx*tt, py = s.a.y+dy*tt;
+      var ddx=pt.x-px, ddy=pt.y-py;
+      var d2 = ddx*ddx+ddy*ddy;
+      var atLen = s.at + tt*Math.sqrt(len2);
+      if(!best || d2<best.d2){ best = {d2:d2, point:{x:px,y:py}, atLen:atLen}; }
+    });
+    return {point:best.point, frac: best.atLen/flat.total};
+  }
+
+  // Each instruction type gets its own marker (color) so the arrowhead
+  // always matches its line - independent of which team drew it.
+  function markerFor(type){
+    return 'url(#arrow-'+type+')';
+  }
+
+  /* ============================= RENDER ============================= */
+  function renderPaths(){
+    pathsLayer.innerHTML = '';
+    state.paths.forEach(function(p){
+      var pts = p.pts;
+      var g = el('g',{});
+      if(p.type==='skate'){
+        var d = catmullRomD(pts);
+        var hit = el('path',{d:d, class:'path-hit deletable'});
+        var line = el('path',{d:d, class:'path-line skate', 'marker-end':markerFor('skate')});
+        g.appendChild(hit); g.appendChild(line);
+      } else if(p.type==='backward'){
+        var d2 = zigzagD(pts);
+        var hit2 = el('path',{d:d2, class:'path-hit deletable'});
+        var line2 = el('path',{d:d2, class:'path-line backward', 'marker-end':markerFor('backward')});
+        g.appendChild(hit2); g.appendChild(line2);
+      } else if(p.type==='pass'){
+        var a=pts[0], b=pts[pts.length-1];
+        var d3 = "M "+a.x+","+a.y+" L "+b.x+","+b.y;
+        var hit3 = el('path',{d:d3, class:'path-hit deletable'});
+        var line3 = el('path',{d:d3, class:'path-line pass', 'marker-end':markerFor('pass')});
+        g.appendChild(hit3); g.appendChild(line3);
+      } else if(p.type==='shot'){
+        var sa=pts[0], sb=pts[pts.length-1];
+        var d4 = "M "+sa.x+","+sa.y+" L "+sb.x+","+sb.y;
+        var hit4 = el('path',{d:d4, class:'path-hit deletable'});
+        var line4 = el('path',{d:d4, class:'path-line shot', 'marker-end':markerFor('shot')});
+        g.appendChild(hit4); g.appendChild(line4);
+        // tick mark near tip
+        var n=pts.length;
+        if(n>=2){
+          var p1=pts[n-2], p2=pts[n-1];
+          var dx=p2.x-p1.x, dy=p2.y-p1.y, len=Math.sqrt(dx*dx+dy*dy)||1;
+          var ux=dx/len, uy=dy/len, px=-uy, py=ux;
+          var cx=p2.x-ux*2.4, cy=p2.y-uy*2.4;
+          var tick = el('line',{x1:cx+px*1.6,y1:cy+py*1.6,x2:cx-px*1.6,y2:cy-py*1.6, class:'path-tick shot'});
+          g.appendChild(tick);
+        }
+      }
+      g.dataset.id = p.id;
+      g.addEventListener('pointerdown', function(ev){ onPathPointerDown(ev, p.id); });
+      pathsLayer.appendChild(g);
+    });
+  }
+
+  function renderNotes(){
+    notesLayer.innerHTML='';
+    state.notes.forEach(function(n){
+      var g = el('g',{});
+      var hit = el('rect',{x:n.x-1, y:n.y-3, width:(n.text.length*2.2)+2, height:5, class:'note-hit'});
+      var t = el('text',{x:n.x, y:n.y, class:'note-text'});
+      t.textContent = n.text;
+      g.appendChild(hit); g.appendChild(t);
+      g.dataset.id = n.id;
+      g.addEventListener('pointerdown', function(ev){ onNotePointerDown(ev, n.id); });
+      notesLayer.appendChild(g);
+    });
+  }
+
+  function renderEntities(skipPuckSync){
+    entitiesLayer.innerHTML = '';
+    if(!skipPuckSync) syncCarriedPuck();
+    state.players.forEach(function(p){
+      var g = el('g',{class:'player team-'+p.team.toLowerCase()+(p.goalie?' goalie':'')});
+      g.appendChild(el('circle',{cx:p.x,cy:p.y,r:5.6,class:'hit'}));
+      g.appendChild(el('circle',{cx:p.x,cy:p.y,r:4.6,class:'marker'}));
+      var glyph = el('text',{x:p.x,y:p.y,class:'glyph'});
+      glyph.textContent = p.goalie ? 'G' : p.pos;
+      g.appendChild(glyph);
+      g.dataset.id = p.id;
+      g.addEventListener('pointerdown', function(ev){ onEntityPointerDown(ev, p.id, 'player'); });
+      entitiesLayer.appendChild(g);
+    });
+    if(state.puck.active){
+      var showLink = state.puck.carriedBy && !skipPuckSync;
+      if(showLink){
+        var carrier = state.players.find(function(p){return p.id===state.puck.carriedBy;});
+        if(carrier){
+          entitiesLayer.appendChild(el('line',{x1:carrier.x,y1:carrier.y,x2:state.puck.x,y2:state.puck.y,class:'puck-tether'}));
+        }
+      }
+      var pg = el('g',{class:'player'+(showLink?' linked':'')});
+      pg.appendChild(el('circle',{cx:state.puck.x,cy:state.puck.y,r:4.6,class:'hit'}));
+      pg.appendChild(el('circle',{cx:state.puck.x,cy:state.puck.y,r:2.6,class:'puck'}));
+      pg.dataset.id = 'puck';
+      pg.addEventListener('pointerdown', function(ev){ onEntityPointerDown(ev,'puck','puck'); });
+      entitiesLayer.appendChild(pg);
+    }
+  }
+
+  function renderLegend(){
+    var legend = document.getElementById('legend');
+    legend.innerHTML =
+      '<span><svg viewBox="0 0 22 10"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--type-skate)" stroke-width="1.8"/></svg>Skate</span>'+
+      '<span><svg viewBox="0 0 22 10"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--type-pass)" stroke-width="1.8" stroke-dasharray="3 2"/></svg>Pass</span>'+
+      '<span><svg viewBox="0 0 22 10"><path d="M1 5 Q6 1 11 5 T21 5" stroke="var(--type-backward)" stroke-width="1.6" fill="none"/></svg>Backward</span>'+
+      '<span><svg viewBox="0 0 22 10"><line x1="1" y1="5" x2="17" y2="5" stroke="var(--type-shot)" stroke-width="1.8"/><line x1="15" y1="2" x2="15" y2="8" stroke="var(--type-shot)" stroke-width="1.4"/></svg>Shot</span>';
+  }
+
+  function applyView(){
+    svg.setAttribute('viewBox', state.view.x+' '+state.view.y+' '+state.view.w+' '+state.view.h);
+  }
+
+  function renderAll(){
+    renderPaths(); renderNotes(); renderEntities(); applyView();
+    document.getElementById('countX').textContent = state.countX;
+    document.getElementById('countO').textContent = state.countO;
+    document.getElementById('goalieX').classList.toggle('on', state.goalieX);
+    document.getElementById('goalieO').classList.toggle('on', state.goalieO);
+    updateSavedList();
+    updateScrubberRange();
+  }
+
+  buildRink();
+  renderLegend();
+
+  /* ============================= POINTER / INTERACTION ============================= */
+  function svgPoint(clientX, clientY){
+    var pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    var ctm = svg.getScreenCTM().inverse();
+    var p = pt.matrixTransform(ctm);
+    return {x:p.x, y:p.y};
+  }
+
+  var drag = null; // {mode:'player'|'puck'|'draw'|'pan', id, type, pts}
+  var pointers = new Map();
+  var pinchStart = null;
+
+  function setTool(t){
+    state.tool = t;
+    document.querySelectorAll('.tool').forEach(function(b){ b.classList.toggle('active', b.dataset.tool===t); });
+    svg.classList.toggle('tool-draw', ['skate','backward','pass','shot','note','erase'].indexOf(t)>=0);
+    svg.classList.toggle('tool-select', t==='select');
+  }
+  document.querySelectorAll('.tool').forEach(function(b){
+    b.addEventListener('click', function(){ setTool(b.dataset.tool); });
+  });
+
+  function onEntityPointerDown(ev, id, type){
+    if(playback.playing) return;
+    ev.stopPropagation();
+    var tool = state.tool;
+    if(tool==='erase'){
+      return; // entities aren't erased, only paths/notes
+    }
+    if(tool==='select'){
+      pushHistory();
+      if(type==='puck'){ state.puck.carriedBy = null; } // free the puck while it's being dragged by hand
+      drag = {mode:'entity', id:id, type:type};
+      svg.setPointerCapture(ev.pointerId);
+    } else if(['skate','backward','pass','shot'].indexOf(tool)>=0){
+      if(type==='puck') return; // the puck has no instructions of its own - it only moves via the player carrying it
+      pushHistory();
+      var p0 = state.players.find(function(pl){return pl.id===id;});
+      drag = {mode:'draw', owner:id, type:tool, pts:[{x:p0.x,y:p0.y}]};
+      svg.setPointerCapture(ev.pointerId);
+    }
+  }
+  function onPathPointerDown(ev, id){
+    if(state.tool==='erase'){
+      ev.stopPropagation();
+      pushHistory();
+      state.paths = state.paths.filter(function(p){return p.id!==id;});
+      renderAll();
+    } else if(state.tool==='pass' || state.tool==='shot'){
+      // Clicking a point along an existing skate/backward path starts a
+      // mid-route pass or shot from that exact spot - the movement itself
+      // keeps running uninterrupted; only the puck departs from there.
+      if(playback.playing) return;
+      var path = state.paths.find(function(p){return p.id===id;});
+      if(!path || (path.type!=='skate' && path.type!=='backward')) return;
+      ev.stopPropagation();
+      pushHistory();
+      var pt = svgPoint(ev.clientX, ev.clientY);
+      var proj = nearestPointOnPolyline(path.pts, pt);
+      drag = {mode:'draw', owner:path.owner, type:state.tool, pts:[proj.point], midRoute:{sourcePathId:path.id, frac:proj.frac}};
+      svg.setPointerCapture(ev.pointerId);
+    }
+  }
+  function onNotePointerDown(ev, id){
+    if(state.tool==='erase'){
+      ev.stopPropagation();
+      pushHistory();
+      state.notes = state.notes.filter(function(n){return n.id!==id;});
+      renderAll();
+    } else if(state.tool==='select'){
+      ev.stopPropagation();
+    }
+  }
+
+  rinkwrap.addEventListener('pointerdown', function(ev){
+    pointers.set(ev.pointerId, {x:ev.clientX, y:ev.clientY});
+    if(pointers.size===2){
+      drag = null;
+      var pts = Array.from(pointers.values());
+      pinchStart = {
+        d: dist(pts[0], pts[1]),
+        view: Object.assign({}, state.view),
+        mid: svgPoint((pts[0].x+pts[1].x)/2, (pts[0].y+pts[1].y)/2)
+      };
+      return;
+    }
+    if(drag) return; // entity/path handlers already engaged
+    if(playback.playing) return;
+    var target = ev.target;
+    var onBackground = (target===svg || target===rinkStatic || target.closest('#rinkStatic'));
+    if(state.tool==='note' && onBackground){
+      var p = svgPoint(ev.clientX, ev.clientY);
+      var text = window.prompt('Note text (e.g. "cone", "cover point"):','');
+      if(text){
+        pushHistory();
+        state.notes.push({id:uid(), x:p.x, y:p.y, text:text});
+        renderAll();
+      }
+      return;
+    }
+    if(onBackground){
+      drag = {mode:'pan', startClient:{x:ev.clientX,y:ev.clientY}, startView:Object.assign({}, state.view)};
+      svg.classList.add('dragging-view');
+      svg.setPointerCapture(ev.pointerId);
+    }
+  });
+
+  rinkwrap.addEventListener('pointermove', function(ev){
+    if(pointers.has(ev.pointerId)) pointers.set(ev.pointerId, {x:ev.clientX, y:ev.clientY});
+    if(pinchStart && pointers.size===2){
+      var pts = Array.from(pointers.values());
+      var d = dist(pts[0], pts[1]);
+      var scale = pinchStart.d / Math.max(1,d);
+      zoomAt(pinchStart.mid, scale, pinchStart.view, true);
+      return;
+    }
+    if(!drag) return;
+    if(drag.mode==='entity'){
+      var p = svgPoint(ev.clientX, ev.clientY);
+      if(drag.type==='puck'){ state.puck.x=p.x; state.puck.y=p.y; }
+      else{
+        var pl = state.players.find(function(pp){return pp.id===drag.id;});
+        if(pl){ pl.x=p.x; pl.y=p.y; }
+      }
+      renderEntities();
+    } else if(drag.mode==='draw'){
+      var p2 = svgPoint(ev.clientX, ev.clientY);
+      var last = drag.pts[drag.pts.length-1];
+      var dx=p2.x-last.x, dy=p2.y-last.y;
+      if(Math.sqrt(dx*dx+dy*dy) > .8) drag.pts.push(p2);
+      previewDraw();
+    } else if(drag.mode==='pan'){
+      var dxc = ev.clientX - drag.startClient.x;
+      var dyc = ev.clientY - drag.startClient.y;
+      var rect = svg.getBoundingClientRect();
+      var scaleX = drag.startView.w / rect.width;
+      var scaleY = drag.startView.h / rect.height;
+      state.view.x = drag.startView.x - dxc*scaleX;
+      state.view.y = drag.startView.y - dyc*scaleY;
+      applyView();
+    }
+  });
+
+  function endDrag(ev){
+    pointers.delete(ev.pointerId);
+    if(pointers.size<2) pinchStart = null;
+    if(!drag) return;
+    if(drag.mode==='draw'){
+      var pts = simplify(drag.pts, .6);
+      if(pts.length>=2 && pathLength(pts) > 1.5){
+        var toId = null;
+        if(drag.type==='pass'){
+          // A pass hands the puck to whoever it ends near - snap the line toward
+          // them, but stop just short of their marker so the arrowhead stays visible.
+          // If it doesn't end near anyone, it's a drop pass into open ice: the puck
+          // will wait at that spot for whoever skates through it during playback.
+          var endp = pts[pts.length-1];
+          var nearest = findNearestPlayer(endp, 6);
+          if(nearest){
+            toId = nearest.id;
+            var dxn = nearest.x - pts[0].x, dyn = nearest.y - pts[0].y;
+            var distN = Math.sqrt(dxn*dxn+dyn*dyn) || 1;
+            var tN = Math.max(0, (distN - 6.5) / distN);
+            pts[pts.length-1] = {x: pts[0].x + dxn*tN, y: pts[0].y + dyn*tN};
+          }
+          pts = [pts[0], pts[pts.length-1]];
+        } else if(drag.type==='shot'){
+          // Shots are always a straight release line - no curve or direction change.
+          pts = [pts[0], pts[pts.length-1]];
+        }
+        // A shot always releases the puck loose (toward the net/open ice) - never hands off to a player.
+        state.paths.push({id:uid(), owner:drag.owner, type:drag.type, pts:pts, toId:toId, midRoute:drag.midRoute||null});
+      } else {
+        history.pop();
+      }
+      pathsLayer.querySelectorAll('.preview').forEach(function(n){n.remove();});
+      renderAll();
+    } else if(drag.mode==='entity'){
+      updatePuckLink();
+      renderEntities();
+    } else if(drag.mode==='pan'){
+      svg.classList.remove('dragging-view');
+    }
+    drag = null;
+  }
+  rinkwrap.addEventListener('pointerup', endDrag);
+  rinkwrap.addEventListener('pointercancel', endDrag);
+
+  function findNearestPlayer(pt, maxDist){
+    var best=null, bd=maxDist;
+    state.players.forEach(function(p){
+      var dx=p.x-pt.x, dy=p.y-pt.y, d=Math.sqrt(dx*dx+dy*dy);
+      if(d<bd){ bd=d; best=p; }
+    });
+    return best;
+  }
+
+  // Keep a carried puck glued to its carrier's current position.
+  function syncCarriedPuck(){
+    if(!state.puck.carriedBy) return;
+    var carrier = state.players.find(function(p){return p.id===state.puck.carriedBy;});
+    if(!carrier){ state.puck.carriedBy = null; return; }
+    state.puck.x = carrier.x + PUCK_OFFSET.x;
+    state.puck.y = carrier.y + PUCK_OFFSET.y;
+  }
+
+  // Re-evaluate whether the puck should link to (or release from) a nearby player,
+  // based on current distance. Called after a manual drag of the puck or a player.
+  function updatePuckLink(){
+    if(!state.puck.active) return;
+    var nearest = findNearestPlayer({x:state.puck.x, y:state.puck.y}, PUCK_ATTACH_DIST);
+    state.puck.carriedBy = nearest ? nearest.id : null;
+    syncCarriedPuck();
+  }
+
+  function previewDraw(){
+    pathsLayer.querySelectorAll('.preview').forEach(function(n){n.remove();});
+    var d;
+    if(drag.type==='backward') d = zigzagD(drag.pts);
+    else if(drag.type==='pass' || drag.type==='shot'){
+      var a=drag.pts[0], b=drag.pts[drag.pts.length-1];
+      d = "M "+a.x+","+a.y+" L "+b.x+","+b.y;
+    } else d = catmullRomD(drag.pts);
+    var typeCls = drag.type==='pass' ? 'pass' : drag.type;
+    var line = el('path',{d:d, class:'path-line preview '+typeCls, opacity:.75});
+    pathsLayer.appendChild(line);
+  }
+
+  function dist(a,b){ var dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy); }
+
+  function zoomAt(clientPointOrSvgPoint, scale, baseView, isSvgPoint){
+    var view = baseView || state.view;
+    var focus = isSvgPoint ? clientPointOrSvgPoint : svgPoint(clientPointOrSvgPoint.x, clientPointOrSvgPoint.y);
+    var newW = clamp(view.w*scale, 30, 216);
+    var newH = newW * (view.h/view.w);
+    var fx = (focus.x - view.x) / view.w;
+    var fy = (focus.y - view.y) / view.h;
+    state.view = {
+      x: focus.x - fx*newW,
+      y: focus.y - fy*newH,
+      w: newW, h: newH
+    };
+    clampView();
+    applyView();
+  }
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+  function clampView(){
+    var full = ZONES.full;
+    if(state.view.w > full.w) state.view.w = full.w;
+    if(state.view.h > full.h) state.view.h = full.h;
+    state.view.x = clamp(state.view.x, full.x-10, full.x+full.w-state.view.w+10);
+    state.view.y = clamp(state.view.y, full.y-10, full.y+full.h-state.view.h+10);
+  }
+
+  rinkwrap.addEventListener('wheel', function(ev){
+    ev.preventDefault();
+    var scale = ev.deltaY > 0 ? 1.08 : .92;
+    var p = svgPoint(ev.clientX, ev.clientY);
+    zoomAt(p, scale, state.view, true);
+  }, {passive:false});
+
+  document.getElementById('zoneBtns').addEventListener('click', function(ev){
+    var btn = ev.target.closest('[data-zone]');
+    if(!btn) return;
+    animateView(ZONES[btn.dataset.zone]);
+  });
+
+  var viewAnim = null;
+  function animateView(target){
+    if(viewAnim) cancelAnimationFrame(viewAnim);
+    var start = Object.assign({}, state.view);
+    var t0 = performance.now(), dur = 380;
+    function step(t){
+      var k = Math.min(1, (t-t0)/dur);
+      var e = 1 - Math.pow(1-k, 3);
+      state.view = {
+        x: start.x + (target.x-start.x)*e,
+        y: start.y + (target.y-start.y)*e,
+        w: start.w + (target.w-start.w)*e,
+        h: start.h + (target.h-start.h)*e
+      };
+      applyView();
+      if(k<1) viewAnim = requestAnimationFrame(step);
+    }
+    viewAnim = requestAnimationFrame(step);
+  }
+
+  /* ============================= ROSTER CONTROLS ============================= */
+  document.querySelectorAll('.stepper button').forEach(function(b){
+    b.addEventListener('click', function(){
+      var team = b.dataset.team, d = +b.dataset.d;
+      var key = 'count'+team;
+      state[key] = clamp(state[key]+d, 0, 6);
+      document.getElementById('count'+team).textContent = state[key];
+    });
+  });
+  document.getElementById('goalieX').addEventListener('click', function(){ state.goalieX=!state.goalieX; this.classList.toggle('on'); });
+  document.getElementById('goalieO').addEventListener('click', function(){ state.goalieO=!state.goalieO; this.classList.toggle('on'); });
+  document.getElementById('formationBtn').addEventListener('click', function(){
+    pushHistory();
+    defaultFormation();
+    stopPlayback();
+    renderAll();
+  });
+  document.getElementById('clearPathsBtn').addEventListener('click', function(){
+    pushHistory();
+    state.paths = [];
+    stopPlayback();
+    renderAll();
+  });
+  document.getElementById('undoBtn').addEventListener('click', undo);
+  document.getElementById('puckBtn').addEventListener('click', function(){
+    pushHistory();
+    state.puck.active = !state.puck.active;
+    if(!state.puck.active) state.puck.carriedBy = null;
+    renderAll();
+  });
+
+  /* ============================= PLAYBACK ============================= */
+  var playback = { playing:false, elapsed:0, raf:null, lastT:0, duration:0, wasInOffZone:false };
+  var OFFENSIVE_ZONE_X = RINK.L - RINK.blueLine; // crossing this line = entering the offensive (right-side) zone
+  var SPEEDS = { skate: 13, backward: 9, pass: 48, shot: 60 }; // ft/s baseline
+
+  function buildTimeline(){
+    // Build each player's own sequence of moves, in the order they were drawn.
+    // Skate/backward segments move the player; a *sequential* pass/shot (one
+    // drawn from the player's marker) doesn't move them further - they throw
+    // and stay put. A *mid-route* pass/shot (one drawn starting from a point
+    // on an already-existing skate/backward line) is kept out of this chain
+    // entirely, so the movement it interrupts keeps running uninterrupted;
+    // it's recorded separately as an "extra trigger" anchored to the exact
+    // time/point along that movement (see below).
+    var byOwner = {};
+    state.paths.forEach(function(p){ (byOwner[p.owner]=byOwner[p.owner]||[]).push(p); });
+    var maxEnd = 0;
+    var entries = [];
+    Object.keys(byOwner).forEach(function(owner){
+      var all = byOwner[owner];
+      var movement = all.filter(function(p){ return !p.midRoute; });
+      var midRoutes = all.filter(function(p){ return p.midRoute; });
+      var t = 0;
+      var segs = movement.map(function(p){
+        var len = pathLength(p.pts);
+        var speed = SPEEDS[p.type] || 12;
+        var dur = Math.max(.15, len/speed);
+        var seg = {start:t, end:t+dur, type:p.type, pts:p.pts, len:len, toId:p.toId||null, pathId:p.id};
+        t += dur;
+        return seg;
+      });
+      maxEnd = Math.max(maxEnd, t);
+      var extraTriggers = [];
+      midRoutes.forEach(function(p){
+        var srcSeg = segs.find(function(s){ return s.pathId === p.midRoute.sourcePathId; });
+        if(!srcSeg) return; // its source path was deleted/edited away - ignore
+        var frac = Math.max(0, Math.min(1, p.midRoute.frac));
+        var at = srcSeg.start + frac*(srcSeg.end-srcSeg.start);
+        var len = pathLength(p.pts);
+        var speed = SPEEDS[p.type] || 12;
+        var dur = Math.max(.15, len/speed);
+        extraTriggers.push({start:at, end:at+dur, type:p.type, pts:p.pts, toId:p.toId||null, pathId:p.id});
+        maxEnd = Math.max(maxEnd, at+dur);
+      });
+      entries.push({owner:owner, segs:segs, extraTriggers:extraTriggers});
+    });
+    playback.duration = maxEnd;
+    playback.entries = entries;
+    var legs = buildPuckLegs(entries);
+    // A trigger can't fire before the puck has actually arrived, and a drop
+    // pass can sit and wait for a pickup - either can push the chain past the
+    // longest individually-drawn sequence, so stretch the overall duration to
+    // cover it, and let the final open-ended follow leg (whoever ends up with
+    // the puck and never releases it again) run to that duration.
+    var chainEnd = 0;
+    legs.forEach(function(leg){ if(isFinite(leg.end)) chainEnd = Math.max(chainEnd, leg.end); });
+    playback.duration = Math.max(maxEnd, chainEnd);
+    legs.forEach(function(leg){ if(!isFinite(leg.end)) leg.end = playback.duration; });
+    playback.puckLegs = legs;
+  }
+
+  // Where a player's body is at time `elapsed`, given their own seg chain.
+  // A sequential pass/shot segment never moves the body - it stays at that
+  // segment's start point (the player throws/shoots and remains where they
+  // released it). This is always evaluated on the player's own natural,
+  // unshifted timeline - every player simply plays out their own drawn
+  // instructions from t=0, regardless of what anyone else (or the puck) is
+  // doing, so independent players are never affected by someone else's pass.
+  function posAtTimeInSegs(segs, elapsed){
+    if(!segs.length) return null;
+    if(elapsed <= 0) return segs[0].pts[0];
+    var last = segs[segs.length-1];
+    if(elapsed >= last.end){
+      return (last.type==='pass'||last.type==='shot') ? last.pts[0] : last.pts[last.pts.length-1];
+    }
+    for(var i=0;i<segs.length;i++){
+      var s = segs[i];
+      if(elapsed>=s.start && elapsed<=s.end){
+        if(s.type==='pass'||s.type==='shot') return s.pts[0];
+        var localT = s.end>s.start ? (elapsed-s.start)/(s.end-s.start) : 1;
+        return pointAtT(flattenLength(s.pts), localT);
+      }
+    }
+    return null;
+  }
+
+  // Walk the chain of possession starting from whoever holds the puck at
+  // rest (or, if it's a loose puck nobody has yet, from whichever player's
+  // own path first brings them within pickup range of where it's sitting):
+  // they carry it through their own skate/backward moves, then at their
+  // first pass or shot (sequential or mid-route) the puck leaves - traveling
+  // along that line. A pass to a specific player links straight to them; a
+  // pass with no recipient (a drop into open ice) instead waits at the
+  // landing spot for whichever *other* player's own path first brings them
+  // within pickup range of it. A shot simply ends the chain there.
+  function buildPuckLegs(entries){
+    var legs = [];
+    if(!state.puck.active) return legs;
+    var byOwnerEntry = {};
+    entries.forEach(function(e){ byOwnerEntry[e.owner] = e; });
+
+    // Latest moment any player's own drawn sequence is still doing something -
+    // used as the search horizon for pickups (after this, everyone still on
+    // the ice is standing still at wherever they ended up).
+    var natMaxEnd = 0;
+    entries.forEach(function(e){
+      if(e.segs.length) natMaxEnd = Math.max(natMaxEnd, e.segs[e.segs.length-1].end);
+      (e.extraTriggers||[]).forEach(function(x){ natMaxEnd = Math.max(natMaxEnd, x.end); });
+    });
+
+    function posOf(ownerId, time){
+      var entry = byOwnerEntry[ownerId];
+      if(entry && entry.segs.length) return posAtTimeInSegs(entry.segs, time);
+      var pl = state.players.find(function(p){return p.id===ownerId;});
+      return pl ? {x:pl.x, y:pl.y} : null;
+    }
+
+    // Earliest moment (at or after fromTime) any player other than excludeId
+    // comes within pickup range of a stationary point on the ice.
+    function findPickup(point, fromTime, excludeId){
+      var STEP = 0.05;
+      var bestTime = Infinity, bestId = null;
+      state.players.forEach(function(p){
+        if(p.id===excludeId) return;
+        for(var st=fromTime; st<=natMaxEnd+1e-9; st+=STEP){
+          var pos = posOf(p.id, st);
+          if(!pos) continue;
+          var dx=pos.x-point.x, dy=pos.y-point.y;
+          if(Math.sqrt(dx*dx+dy*dy) <= PUCK_ATTACH_DIST){
+            if(st<bestTime){ bestTime = st; bestId = p.id; }
+            break;
+          }
+        }
+      });
+      return bestId ? {id:bestId, time:bestTime} : null;
+    }
+
+    var carrier = state.puck.carriedBy;
+    var t = 0, guard = 0;
+    if(!carrier){
+      // Loose puck at rest, unclaimed - let whoever skates into range first
+      // link up to it exactly when they arrive, then carry on normally.
+      var initialPickup = findPickup({x:state.puck.x, y:state.puck.y}, 0, null);
+      if(!initialPickup) return legs;
+      legs.push({kind:'wait', start:0, end:initialPickup.time, pt:{x:state.puck.x, y:state.puck.y}});
+      carrier = initialPickup.id;
+      t = initialPickup.time;
+    }
+    while(carrier && guard++ < 64){
+      var entry = byOwnerEntry[carrier];
+      var segs = entry ? entry.segs : [];
+      var extra = entry ? entry.extraTriggers : [];
+      var candidates = [];
+      segs.forEach(function(s){ if(s.type==='pass' || s.type==='shot') candidates.push(s); });
+      extra.forEach(function(s){ candidates.push(s); });
+      candidates.sort(function(a,b){ return a.start-b.start; });
+      var trigger = candidates.length ? candidates[0] : null;
+
+      if(!trigger){
+        legs.push({kind:'follow', start:t, end:Infinity, playerId:carrier});
+        break;
+      }
+      // The trigger can't fire before the carrier actually has the puck (t) -
+      // if their own drawn timing says it happens even later, honor that instead.
+      var depart = Math.max(trigger.start, t);
+      legs.push({kind:'follow', start:t, end:depart, playerId:carrier});
+      var travelDur = Math.max(0, trigger.end - trigger.start);
+      var travelEnd = depart + travelDur;
+      legs.push({kind:'travel', start:depart, end:travelEnd, pts:trigger.pts});
+      t = travelEnd;
+
+      if(trigger.type==='pass' && trigger.toId){
+        carrier = trigger.toId;
+        continue;
+      }
+
+      if(trigger.type==='pass'){
+        // Drop pass into open ice - see who reaches the landing spot first.
+        var landing = trigger.pts[trigger.pts.length-1];
+        var dropPickup = findPickup(landing, t, carrier);
+        if(dropPickup){
+          legs.push({kind:'wait', start:t, end:dropPickup.time, pt:landing});
+          t = dropPickup.time;
+          carrier = dropPickup.id;
+          continue;
+        }
+      }
+      carrier = null; // shot, or a drop pass nobody ever skates through
+    }
+    return legs;
+  }
+
+  function updateScrubberRange(){
+    buildTimeline();
+    document.getElementById('timecode').textContent = fmtT(playback.elapsed)+' / '+fmtT(playback.duration)+'s';
+  }
+  function fmtT(s){ return (Math.round(s*10)/10).toFixed(1); }
+
+  function applyElapsed(elapsed){
+    playback.elapsed = elapsed;
+    playback.entries.forEach(function(entry){
+      if(entry.owner==='puck') return; // legacy data safety - puck is driven by applyPuckLegs below
+      var pos = posAtTimeInSegs(entry.segs, elapsed);
+      if(!pos) return;
+      var pl = state.players.find(function(p){return p.id===entry.owner;});
+      if(pl){ pl.x=pos.x; pl.y=pos.y; }
+    });
+    applyPuckLegs(elapsed);
+    renderEntities(true);
+    document.getElementById('timecode').textContent = fmtT(elapsed)+' / '+fmtT(playback.duration)+'s';
+    var scrub = document.getElementById('scrubber');
+    if(playback.duration>0) scrub.value = Math.round((elapsed/playback.duration)*1000);
+
+    // Auto-zoom: the moment the puck crosses into the offensive zone during
+    // live playback, follow it in to that preset view - only on the instant
+    // it crosses (not every frame it's already there), so it doesn't fight
+    // a view the coach has since panned/zoomed by hand.
+    if(playback.playing && state.puck.active){
+      var nowInOff = state.puck.x >= OFFENSIVE_ZONE_X;
+      if(nowInOff && !playback.wasInOffZone) animateView(ZONES.off);
+      playback.wasInOffZone = nowInOff;
+    }
+  }
+
+  function applyPuckLegs(elapsed){
+    var legs = playback.puckLegs;
+    if(!legs || !legs.length) return; // nobody ever gets close enough - puck stays wherever it was placed
+    var chosen = legs[legs.length-1];
+    for(var i=0;i<legs.length;i++){ if(elapsed <= legs[i].end){ chosen = legs[i]; break; } }
+    if(chosen.kind==='follow'){
+      var pl = state.players.find(function(p){return p.id===chosen.playerId;});
+      if(!pl) return;
+      var entry = playback.entries.find(function(e){return e.owner===chosen.playerId;});
+      var pos = entry ? posAtTimeInSegs(entry.segs, elapsed) : {x:pl.x, y:pl.y};
+      if(pos){ state.puck.x = pos.x + PUCK_OFFSET.x; state.puck.y = pos.y + PUCK_OFFSET.y; }
+    } else if(chosen.kind==='wait'){
+      state.puck.x = chosen.pt.x; state.puck.y = chosen.pt.y;
+    } else {
+      var localT = chosen.end>chosen.start ? Math.max(0,Math.min(1,(elapsed-chosen.start)/(chosen.end-chosen.start))) : 1;
+      var pos2 = pointAtT(flattenLength(chosen.pts), localT);
+      state.puck.x = pos2.x; state.puck.y = pos2.y;
+    }
+  }
+
+  function resetPositions(){
+    state.players.forEach(function(p){ p.x=p.sx; p.y=p.sy; });
+    state.puck.x = state.puck.sx; state.puck.y = state.puck.sy;
+    renderEntities();
+  }
+  function capturePathStartsAsHome(){
+    // ensure player "start" reflects position at time 0 of their first path, else current
+    state.players.forEach(function(p){
+      var firstPath = state.paths.find(function(pp){return pp.owner===p.id;});
+      if(firstPath){ p.sx = firstPath.pts[0].x; p.sy = firstPath.pts[0].y; }
+      else { p.sx = p.x; p.sy = p.y; }
+    });
+    var puckPath = state.paths.find(function(pp){return pp.owner==='puck';});
+    if(puckPath){ state.puck.sx = puckPath.pts[0].x; state.puck.sy = puckPath.pts[0].y; }
+    else { state.puck.sx = state.puck.x; state.puck.sy = state.puck.y; }
+  }
+
+  function play(){
+    buildTimeline();
+    if(playback.duration<=0){ return; }
+    capturePathStartsAsHome();
+    resetPositions();
+    playback.playing = true;
+    playback.wasInOffZone = false;
+    svg.classList.add('playing');
+    document.getElementById('playIcon').innerHTML = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
+    playback.lastT = performance.now();
+    if(playback.elapsed >= playback.duration) playback.elapsed = 0;
+    function frame(t){
+      if(!playback.playing) return;
+      var dt = (t - playback.lastT)/1000 * getSpeedMultiplier();
+      playback.lastT = t;
+      var e = playback.elapsed + dt;
+      if(e >= playback.duration){ e = playback.duration; applyElapsed(e); pausePlayback(); return; }
+      applyElapsed(e);
+      playback.raf = requestAnimationFrame(frame);
+    }
+    playback.raf = requestAnimationFrame(frame);
+  }
+  function pausePlayback(){
+    playback.playing = false;
+    svg.classList.remove('playing');
+    document.getElementById('playIcon').innerHTML = '<path d="M8 5v14l11-7z"/>';
+    if(playback.raf) cancelAnimationFrame(playback.raf);
+  }
+  function stopPlayback(){
+    pausePlayback();
+    playback.elapsed = 0;
+    playback.wasInOffZone = false;
+    buildTimeline();
+  }
+  function getSpeedMultiplier(){ return (+document.getElementById('speedSlider').value)/100; }
+
+  document.getElementById('playBtn').addEventListener('click', function(){
+    if(playback.playing) pausePlayback(); else play();
+  });
+  document.getElementById('resetBtn').addEventListener('click', function(){
+    pausePlayback();
+    playback.elapsed = 0;
+    playback.wasInOffZone = false;
+    buildTimeline();
+    resetPositions();
+    document.getElementById('scrubber').value = 0;
+    document.getElementById('timecode').textContent = fmtT(0)+' / '+fmtT(playback.duration)+'s';
+  });
+  document.getElementById('scrubber').addEventListener('input', function(){
+    pausePlayback();
+    buildTimeline();
+    capturePathStartsAsHome();
+    if(playback.duration<=0) return;
+    var e = (this.value/1000)*playback.duration;
+    applyElapsed(e);
+  });
+
+  /* ============================= SAVE / LOAD (localStorage) ============================= */
+  var STORAGE_KEY = 'rinkboard.savedPlays.v1';
+  function getSaved(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch(e){ return []; }
+  }
+  function setSaved(list){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }catch(e){}
+  }
+  function updateSavedList(){
+    var list = getSaved();
+    var wrap = document.getElementById('savedList');
+    wrap.innerHTML = '';
+    if(!list.length){ wrap.innerHTML = '<div class="empty-note">Nothing saved yet.</div>'; return; }
+    list.forEach(function(item, idx){
+      var row = document.createElement('div'); row.className='savedplay';
+      var b = document.createElement('button'); b.className='btn small'; b.textContent = item.name;
+      b.addEventListener('click', function(){
+        pushHistory();
+        Object.assign(state, item.state);
+        stopPlayback();
+        renderAll();
+      });
+      var exp = document.createElement('button'); exp.className='btn small icon'; exp.title='Export this play'; exp.innerHTML='&#8595;';
+      exp.addEventListener('click', function(){ exportPlays([item]); });
+      var del = document.createElement('button'); del.className='btn small danger icon'; del.innerHTML='&times;';
+      del.addEventListener('click', function(){
+        var l = getSaved(); l.splice(idx,1); setSaved(l); updateSavedList();
+      });
+      row.appendChild(b); row.appendChild(exp); row.appendChild(del);
+      wrap.appendChild(row);
+    });
+  }
+
+  // Offer a generated file to the person using it. Two very different
+  // environments run this same file: published as a Claude artifact (where
+  // a plain <a download> link is inert - the viewer frame has no download
+  // permission of its own) and deployed as an ordinary standalone page (e.g.
+  // via GitHub Pages, where that same link works fine). `window.claude`
+  // only exists in the former, so it's what tells the two apart: there, go
+  // through the `downloads` capability's confirm-and-save flow; everywhere
+  // else, fall back to the normal browser download.
+  function saveFileForUser(filename, text, mime){
+    var blob = new Blob([text], {type: mime||'application/json'});
+    if(window.claude && typeof window.claude.use==='function'){
+      return window.claude.use('downloads').then(function(downloads){
+        if(!downloads) return {ok:false, error:{code:'unavailable', message:'Downloads are not available in this view.'}};
+        return downloads.save({filename:filename, data:blob}).then(
+          function(){ return {ok:true}; },
+          function(err){ return {ok:false, error:err}; }
+        );
+      });
+    }
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    return Promise.resolve({ok:true});
+  }
+
+  // Plays are saved to this browser's localStorage, so exporting to a file
+  // is how a coach backs them up, moves them to another device, or shares
+  // one with someone else; importing merges a file's plays back in.
+  function exportPlays(list){
+    if(!list.length) return;
+    var payload = {type:'rinkboard-plays', version:1, exportedAt:new Date().toISOString(), plays:list};
+    var text = JSON.stringify(payload, null, 2);
+    var name = list.length===1 ? (list[0].name.replace(/[^a-z0-9-_ ]/gi,'').trim() || 'play') : 'rinkboard-plays';
+    var filename = name.replace(/\s+/g,'-').toLowerCase() + '-' + new Date().toISOString().slice(0,10) + '.json';
+    saveFileForUser(filename, text, 'application/json').then(function(res){
+      if(res.ok || !res.error || res.error.code==='declined') return; // declined = they said no, nothing to report
+      window.alert('Could not save the file (' + res.error.message + ').');
+    });
+  }
+
+  function isPlainObject(v){ return v && typeof v==='object' && !Array.isArray(v); }
+  function looksLikeSavedPlay(item){
+    return isPlainObject(item) && typeof item.name==='string' && isPlainObject(item.state) && Array.isArray(item.state.players);
+  }
+  function importPlaysFromJSON(text){
+    var data;
+    try{ data = JSON.parse(text); }catch(e){ window.alert('That file is not valid JSON.'); return; }
+    var incoming = Array.isArray(data) ? data : (Array.isArray(data && data.plays) ? data.plays : null);
+    if(!incoming){ window.alert('That file does not look like a Rink Board plays export.'); return; }
+    var existing = getSaved();
+    var existingNames = {};
+    existing.forEach(function(p){ existingNames[p.name] = true; });
+    var added = 0, skipped = 0;
+    incoming.forEach(function(item){
+      if(!looksLikeSavedPlay(item)){ skipped++; return; }
+      var name = item.name;
+      // avoid silently clobbering a play that already has this name
+      while(existingNames[name]) name = name + ' (imported)';
+      existingNames[name] = true;
+      existing.push({name:name, state:item.state});
+      added++;
+    });
+    setSaved(existing);
+    updateSavedList();
+    if(added || skipped){
+      window.alert('Imported ' + added + ' play' + (added===1?'':'s') + (skipped ? ', skipped ' + skipped + ' unrecognized entr' + (skipped===1?'y':'ies') : '') + '.');
+    }
+  }
+  document.getElementById('saveBtn').addEventListener('click', function(){
+    var name = window.prompt('Name this play:', 'My Play '+(getSaved().length+1));
+    if(!name) return;
+    var list = getSaved();
+    list.push({name:name, state:{players:state.players, puck:state.puck, paths:state.paths, notes:state.notes,
+      countX:state.countX, countO:state.countO, goalieX:state.goalieX, goalieO:state.goalieO}});
+    setSaved(list);
+    updateSavedList();
+  });
+  document.getElementById('exportPlaysBtn').addEventListener('click', function(){
+    var list = getSaved();
+    if(!list.length){ window.alert('No saved plays to export yet - save a play first.'); return; }
+    exportPlays(list);
+  });
+  document.getElementById('importPlaysBtn').addEventListener('click', function(){
+    document.getElementById('importPlaysFile').click();
+  });
+  document.getElementById('importPlaysFile').addEventListener('change', function(ev){
+    var file = ev.target.files && ev.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){ importPlaysFromJSON(String(reader.result)); };
+    reader.onerror = function(){ window.alert('Could not read that file.'); };
+    reader.readAsText(file);
+    ev.target.value = ''; // allow re-importing the same file later
+  });
+  document.getElementById('printBtn').addEventListener('click', function(){ window.print(); });
+
+  /* ============================= RESPONSIVE SIDEBAR ============================= */
+  function checkNarrow(){
+    var narrow = window.innerWidth < 880;
+    document.getElementById('menuBtn').style.display = narrow ? 'inline-flex' : 'none';
+  }
+  window.addEventListener('resize', checkNarrow);
+  checkNarrow();
+  document.getElementById('menuBtn').addEventListener('click', function(){
+    document.getElementById('sidebar').classList.toggle('open');
+  });
+
+  /* ============================= INIT ============================= */
+  defaultFormation();
+  history = [];
+  renderAll();
+})();
+</script>
+</body>
+</html>
